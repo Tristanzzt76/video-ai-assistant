@@ -31,12 +31,12 @@ class ChromaRetriever:
         self._reranker = None
 
     def _get_reranker(self):
-        """懒加载 BGE-Reranker（只在第一次 rerank 时加载）。"""
+        """懒加载 BGE-Reranker（用 sentence-transformers CrossEncoder，兼容 transformers 5.x）。"""
         if self._reranker is None:
             try:
-                from FlagEmbedding import FlagReranker
-                self._reranker = FlagReranker("BAAI/bge-reranker-base", use_fp16=True)
-                logger.info("BGE-Reranker 加载完成")
+                from sentence_transformers import CrossEncoder
+                self._reranker = CrossEncoder("BAAI/bge-reranker-base")
+                logger.info("BGE-Reranker 加载完成（CrossEncoder）")
             except Exception as e:
                 logger.warning(f"BGE-Reranker 加载失败，跳过精排: {e}")
         return self._reranker
@@ -102,7 +102,7 @@ class ChromaRetriever:
 
         try:
             pairs = [[query, c.text] for c in chunks]
-            scores = reranker.compute_score(pairs, normalize=True)
+            scores = reranker.predict(pairs)  # CrossEncoder.predict，返回 raw logit scores
             for chunk, score in zip(chunks, scores):
                 chunk.score = float(score)
             chunks.sort(key=lambda c: c.score, reverse=True)
