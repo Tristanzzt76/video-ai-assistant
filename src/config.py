@@ -3,11 +3,15 @@ from functools import lru_cache
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",  # 忽略 .env 中未声明的变量
+    )
 
-    anthropic_api_key: str = ""
+    zhipu_api_key: str = ""
     embedding_model: str = "local"
-    llm_provider: str = "claude"
+    llm_provider: str = "zhipu"
     chroma_path: str = "./data/chroma"
     docs_path: str = "./data/docs"
     cors_origins: str = "http://localhost:3000"
