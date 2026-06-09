@@ -28,10 +28,13 @@ async def lifespan(app: FastAPI):
     Path(settings.docs_path).mkdir(parents=True, exist_ok=True)
     Path(settings.chroma_path).mkdir(parents=True, exist_ok=True)
 
-    # 预加载 BGE-M3（避免第一次请求时卡顿）
+    # 预加载 BGE-M3（首次需下载 ~550MB，失败时降级启动）
     from src.rag.embedder import get_embedder
     embedder = get_embedder()
-    embedder.load()
+    try:
+        embedder.load()
+    except Exception as e:
+        logger.warning(f"BGE-M3 加载失败（服务仍可启动，但 /upload /chat 不可用）: {e}")
 
     # 注入 retriever 到 tools
     from src.rag.retriever import ChromaRetriever
