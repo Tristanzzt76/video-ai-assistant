@@ -34,5 +34,6 @@ class VideoKnowledgeBase:
             substring_bonus = 1 if query.lower() in text else 0
             return overlap + substring_bonus
 
-        ranked = heapq.nlargest(top_k, self._chunks, key=score)
-        return [chunk for chunk in ranked if score(chunk) > 0]
+        scored = ((score(chunk), chunk) for chunk in self._chunks)
+        ranked = heapq.nlargest(top_k, scored, key=lambda item: item[0])
+        return [chunk for chunk_score, chunk in ranked if chunk_score > 0]

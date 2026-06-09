@@ -29,6 +29,11 @@ class VideoRAGLangGraphAgent:
         knowledge_base: VideoKnowledgeBase,
         answer_generator: Optional[Callable[[str, List[VideoChunk]], str]] = None,
     ) -> None:
+        """Create a video RAG Q&A agent.
+
+        `answer_generator` receives `(question, retrieved_context_chunks)` and
+        must return a plain-text answer string.
+        """
         self._kb = knowledge_base
         self._answer_generator = answer_generator or self._default_answer_generator
         self._graph = self._build_graph()
