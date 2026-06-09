@@ -3,7 +3,7 @@ import os
 from functools import lru_cache
 from typing import Literal
 
-from langchain_anthropic import ChatAnthropic
+from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import StateGraph, START, END
 from langgraph.prebuilt import ToolNode
@@ -115,9 +115,10 @@ def get_graph():
     return _graph_instance
 
 
-def _get_llm() -> ChatAnthropic:
-    return ChatAnthropic(
-        model="claude-sonnet-4-6",
-        api_key=os.getenv("ANTHROPIC_API_KEY", ""),
+def _get_llm() -> ChatOpenAI:
+    return ChatOpenAI(
+        model="glm-4-flash",
+        api_key=os.getenv("ZHIPU_API_KEY", ""),
+        base_url="https://open.bigmodel.cn/api/paas/v4/",
         max_tokens=2048,
     )
