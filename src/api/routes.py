@@ -87,9 +87,31 @@ async def upload_document(file: UploadFile = File(...)):
     )
 
 
-@router.post("/chat", response_model=ChatResponse)
+@router.post("/chat")
 async def chat(request: ChatRequest):
-    """问答接口，调用 LangGraph Agent 处理 query。"""
+    """问答接口，stream=True 时返回 SSE 流，stream=False 时返回 JSON。"""
+    if request.stream:
+        from src.agent.graph import stream_graph
+        import json
+
+        async def event_stream():
+            try:
+                async for chunk in stream_graph(request.query, request.session_id):
+                    yield chunk
+            except Exception as e:
+                logger.error(f"流式生成失败: {e}")
+                yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+        return StreamingResponse(
+            event_stream(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "X-Accel-Buffering": "no",
+            },
+        )
+
+    # 原有同步逻辑保持不变
     from src.agent.graph import get_graph
 
     try:

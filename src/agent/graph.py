@@ -154,3 +154,51 @@ def _get_llm() -> ChatOpenAI:
         base_url="https://open.bigmodel.cn/api/paas/v4/",
         max_tokens=2048,
     )
+
+
+async def stream_graph(query: str, session_id: str = "default"):
+    """异步流式生成，yield token 字符串。"""
+    import json
+
+    graph = get_graph()
+    llm = _get_llm()
+
+    # 先跑 rewrite + router + tool 节点（同步）
+    init_state = {
+        "query": query,
+        "session_id": session_id,
+        "messages": [],
+        "retrieved_chunks": [],
+        "sources": [],
+        "route": "rag",
+        "answer": "",
+    }
+
+    # 跑前三个节点，拿到检索结果
+    state = rewrite_query_node(init_state)
+    state = router_node(state)
+
+    sources = []
+    if route_condition(state) == "tool":
+        state = tool_node_func(state)
+        sources = state.get("sources", [])
+
+    # 流式生成回答
+    chunks = state.get("retrieved_chunks", [])
+    if chunks and chunks[0]:
+        context = "\n\n".join(chunks)
+        user_content = f"参考以下资料回答问题：\n\n{context}\n\n问题：{state['query']}"
+    else:
+        user_content = state["query"]
+
+    messages = [SystemMessage(content=SYSTEM_PROMPT), HumanMessage(content=user_content)]
+
+    # 先发 sources 信息
+    yield f"data: {json.dumps({'type': 'sources', 'sources': sources}, ensure_ascii=False)}\n\n"
+
+    # 流式输出 token
+    async for chunk in llm.astream(messages):
+        if chunk.content:
+            yield f"data: {json.dumps({'type': 'token', 'content': chunk.content}, ensure_ascii=False)}\n\n"
+
+    yield "data: [DONE]\n\n"

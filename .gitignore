@@ -12,7 +12,6 @@ build/
 
 # 数据和模型（体积太大）
 data/chroma/
-data/docs/
 *.pdf
 *.bin
 *.pt
