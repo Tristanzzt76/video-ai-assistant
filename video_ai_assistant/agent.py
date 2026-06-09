@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable, Dict, List, Optional, TypedDict
+from typing import Any, Callable, Dict, List, Optional, TypedDict
 
 from .rag import VideoChunk, VideoKnowledgeBase
 
@@ -33,7 +33,7 @@ class VideoRAGLangGraphAgent:
         self._answer_generator = answer_generator or self._default_answer_generator
         self._graph = self._build_graph()
 
-    def _build_graph(self):
+    def _build_graph(self) -> Optional[Any]:
         if StateGraph is None:
             return None
 
@@ -51,6 +51,11 @@ class VideoRAGLangGraphAgent:
     def _generate_answer(self, state: QAState) -> Dict[str, str]:
         return {"answer": self._answer_generator(state["question"], state["context"])}
 
+    def _run_fallback_flow(self, initial_state: QAState) -> QAState:
+        state = {**initial_state, **self._retrieve_context(initial_state)}
+        state.update(self._generate_answer(state))
+        return state
+
     def ask(self, question: str, top_k: int = 3) -> QAResponse:
         initial_state: QAState = {
             "question": question,
@@ -61,11 +66,7 @@ class VideoRAGLangGraphAgent:
         if self._graph is not None:
             final_state = self._graph.invoke(initial_state)
         else:
-            final_state = {
-                **initial_state,
-                **self._retrieve_context(initial_state),
-            }
-            final_state.update(self._generate_answer(final_state))
+            final_state = self._run_fallback_flow(initial_state)
 
         return {
             "question": final_state["question"],

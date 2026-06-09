@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import heapq
 import re
 from typing import Dict, Iterable, List
 
@@ -33,5 +34,5 @@ class VideoKnowledgeBase:
             substring_bonus = 1 if query.lower() in text else 0
             return overlap + substring_bonus
 
-        ranked = sorted(((score(chunk), chunk) for chunk in self._chunks), reverse=True)
-        return [chunk for chunk_score, chunk in ranked[:top_k] if chunk_score > 0]
+        ranked = heapq.nlargest(top_k, ((score(chunk), chunk) for chunk in self._chunks))
+        return [chunk for chunk_score, chunk in ranked if chunk_score > 0]
