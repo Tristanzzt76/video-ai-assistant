@@ -21,7 +21,7 @@ class VideoQASystemTests(unittest.TestCase):
             ]
         )
 
-    def test_retrieve_returns_relevant_chunk(self):
+    def test_retrieve_returns_relevant_chunk_for_query(self):
         results = self.kb.retrieve("What is self-attention?", top_k=1)
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].video_id, "intro-transformers")

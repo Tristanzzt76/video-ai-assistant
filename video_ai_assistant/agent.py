@@ -52,9 +52,14 @@ class VideoRAGLangGraphAgent:
         return {"answer": self._answer_generator(state["question"], state["context"])}
 
     def _run_fallback_flow(self, initial_state: QAState) -> QAState:
-        state = {**initial_state, **self._retrieve_context(initial_state)}
-        state.update(self._generate_answer(state))
-        return state
+        context = self._retrieve_context(initial_state)["context"]
+        answer = self._generate_answer({**initial_state, "context": context})["answer"]
+        return {
+            "question": initial_state["question"],
+            "top_k": initial_state["top_k"],
+            "context": context,
+            "answer": answer,
+        }
 
     def ask(self, question: str, top_k: int = 3) -> QAResponse:
         initial_state: QAState = {
