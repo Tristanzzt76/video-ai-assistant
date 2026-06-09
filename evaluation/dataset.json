@@ -1,0 +1,62 @@
+[
+  {
+    "question": "HLS 协议中 M3U8 文件的作用是什么？",
+    "ground_truth": "M3U8 是 HLS 的索引文件，描述所有视频片段的 URL、时长和播放顺序，客户端通过它按序请求 .ts 片段实现流式播放。",
+    "context_docs": ["hls_intro.md"]
+  },
+  {
+    "question": "HLS 中 .ts 片段的典型时长是多少，为什么要切片？",
+    "ground_truth": ".ts 片段通常为 2~10 秒，切片的目的是让客户端可以边下载边播放，并能根据网络状况动态切换不同码率的分片列表（ABR）。",
+    "context_docs": ["hls_intro.md"]
+  },
+  {
+    "question": "HLS 的 ABR 自适应码率是如何工作的？",
+    "ground_truth": "HLS 通过主 M3U8（Master Playlist）列出多个码率的子播放列表，客户端根据当前带宽估算动态选择合适的码率子列表，实现自适应码率切换。",
+    "context_docs": ["hls_intro.md"]
+  },
+  {
+    "question": "H.264 中 GOP 是什么，它对视频质量有何影响？",
+    "ground_truth": "GOP（Group of Pictures）是两个 IDR 关键帧之间的帧序列，GOP 越长压缩率越高但随机访问能力越差，GOP 过短则码率增大但利于 seek 和直播场景。",
+    "context_docs": ["h264_encoding.md"]
+  },
+  {
+    "question": "H.264 编码中 IDR 帧和普通 I 帧的区别是什么？",
+    "ground_truth": "IDR 帧（Instantaneous Decoding Refresh）是特殊的 I 帧，它强制清空解码器参考缓冲区，确保其后的帧不依赖 IDR 之前的任何帧；普通 I 帧可能仍被后续帧引用，不能作为随机访问点。",
+    "context_docs": ["h264_encoding.md"]
+  },
+  {
+    "question": "H.264 的码率控制模式 CBR 和 VBR 有什么区别？",
+    "ground_truth": "CBR（恒定码率）以固定比特率编码，适合直播和带宽受限场景；VBR（可变码率）根据画面复杂度动态分配比特，在相同文件大小下画质更好，适合点播场景。",
+    "context_docs": ["h264_encoding.md"]
+  },
+  {
+    "question": "DASH 协议中 MPD 文件的作用是什么？",
+    "ground_truth": "MPD（Media Presentation Description）是 DASH 的媒体描述文件，以 XML 格式定义所有码率、分辨率的 Segment 地址和时长，客户端解析 MPD 后按需请求对应的媒体分片。",
+    "context_docs": ["dash_intro.md"]
+  },
+  {
+    "question": "DASH 和 HLS 协议的主要区别是什么？",
+    "ground_truth": "DASH 是国际标准（MPEG），使用 MPD+分片，支持更灵活的分片格式（fMP4/WebM）；HLS 是苹果私有标准，使用 M3U8+.ts/.fmp4 分片，原生支持 iOS/macOS，两者均支持 ABR 但生态和兼容性不同。",
+    "context_docs": ["dash_intro.md"]
+  },
+  {
+    "question": "DASH 中 Segment 的初始化片段（Initialization Segment）有什么作用？",
+    "ground_truth": "初始化 Segment 包含视频的编解码参数、容器头信息（如 moov box），客户端必须首先下载它才能正确初始化解码器，后续媒体 Segment 依赖这些参数才能解码。",
+    "context_docs": ["dash_intro.md"]
+  },
+  {
+    "question": "CDN 边缘节点如何通过回源策略减少源站压力？",
+    "ground_truth": "边缘节点收到请求后先查本地缓存，命中则直接返回；未命中则向上级节点或源站回源拉取内容并缓存，后续相同请求直接由边缘命中，大幅减少源站请求量。",
+    "context_docs": ["cdn_distribution.md"]
+  },
+  {
+    "question": "视频质量指标 PSNR 和 SSIM 分别衡量什么？",
+    "ground_truth": "PSNR（峰值信噪比）基于像素均方误差衡量重建质量，值越高越好，但与主观感知相关性有限；SSIM（结构相似性）从亮度、对比度、结构三个维度综合评估，与人眼感知相关性更强。",
+    "context_docs": ["video_quality.md"]
+  },
+  {
+    "question": "影响视频主观质量的主要因素有哪些？",
+    "ground_truth": "主观质量受分辨率、码率、编码器效率、帧率、量化参数（QP）以及块效应、振铃、模糊等压缩失真的影响，通常用 MOS（平均意见分）通过主观测试评估。",
+    "context_docs": ["video_quality.md"]
+  }
+]

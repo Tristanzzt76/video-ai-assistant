@@ -31,20 +31,33 @@ def rag_search(query: str) -> str:
 
 @tool
 def web_search(query: str) -> str:
-    """在互联网上搜索最新信息。适用于知识库没有覆盖的问题。"""
+    """在互联网上搜索最新信息。适用于知识库没有覆盖的问题或需要最新资讯。"""
+    import os
+    # 优先 Tavily（如果配置了）
+    tavily_key = os.getenv("TAVILY_API_KEY", "")
+    if tavily_key and not tavily_key.startswith("tvly-your"):
+        try:
+            from tavily import TavilyClient
+            client = TavilyClient(api_key=tavily_key)
+            response = client.search(query, max_results=3)
+            results = response.get("results", [])
+            if results:
+                return "\n\n---\n\n".join(
+                    f"[{r.get('title','')}]\n{r.get('content','')}"
+                    for r in results
+                )
+        except Exception as e:
+            logger.warning(f"Tavily 失败，降级到 DuckDuckGo: {e}")
+
+    # 降级到 DuckDuckGo（免费）
     try:
-        from tavily import TavilyClient
-        import os
-        api_key = os.getenv("TAVILY_API_KEY", "")
-        if not api_key:
-            return "Web 搜索未配置（TAVILY_API_KEY 未设置），请从知识库回答"
-        client = TavilyClient(api_key=api_key)
-        response = client.search(query, max_results=3)
-        results = response.get("results", [])
+        from duckduckgo_search import DDGS
+        with DDGS() as ddgs:
+            results = list(ddgs.text(query, max_results=3))
         if not results:
             return "未找到相关网页内容"
         return "\n\n---\n\n".join(
-            f"[{r.get('title', '')}]({r.get('url', '')})\n{r.get('content', '')}"
+            f"[{r.get('title','')}]\n{r.get('body','')}"
             for r in results
         )
     except Exception as e:

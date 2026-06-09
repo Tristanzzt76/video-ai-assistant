@@ -30,6 +30,36 @@ ROUTER_PROMPT = """判断以下问题是否需要检索视频技术知识库。
 只回答 rag/web/direct 三个词之一，不要其他内容。"""
 
 
+REWRITE_PROMPT = """将用户的问题改写为更适合向量检索的查询语句。
+
+规则：
+1. 展开缩写（HLS → HTTP Live Streaming）
+2. 补充技术上下文（"切片" → "HLS 视频切片 .ts 文件"）
+3. 简单问候/闲聊直接原样返回
+4. 只输出改写后的查询，不要解释
+
+原始问题：{query}
+改写后的查询："""
+
+
+def rewrite_query_node(state: AgentState) -> AgentState:
+    """对用户 query 做语义改写，提升检索精度。"""
+    query = state["query"]
+    # 简短问候不改写
+    if len(query) < 10 or any(w in query for w in ["你好", "hello", "hi", "谢谢", "感谢"]):
+        return state
+    try:
+        llm = _get_llm()
+        response = llm.invoke([HumanMessage(content=REWRITE_PROMPT.format(query=query))])
+        rewritten = response.content.strip()
+        if rewritten and rewritten != query:
+            logger.info(f"Query 改写: '{query}' → '{rewritten}'")
+            return {**state, "query": rewritten}
+    except Exception as e:
+        logger.warning(f"Query 改写失败，使用原始 query: {e}")
+    return state
+
+
 def router_node(state: AgentState) -> AgentState:
     """判断 query 路由到哪个 Tool 或直接生成。"""
     llm = _get_llm()
@@ -93,11 +123,13 @@ def route_condition(state: AgentState) -> Literal["tool", "generate"]:
 def build_graph():
     """构建并编译 LangGraph 状态机。"""
     graph = StateGraph(AgentState)
+    graph.add_node("rewrite", rewrite_query_node)
     graph.add_node("router", router_node)
     graph.add_node("tool", tool_node_func)
     graph.add_node("generate", generate_node)
 
-    graph.add_edge(START, "router")
+    graph.add_edge(START, "rewrite")
+    graph.add_edge("rewrite", "router")
     graph.add_conditional_edges("router", route_condition, {"tool": "tool", "generate": "generate"})
     graph.add_edge("tool", "generate")
     graph.add_edge("generate", END)
