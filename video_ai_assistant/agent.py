@@ -17,6 +17,12 @@ class QAState(TypedDict):
     answer: str
 
 
+class QAResponse(TypedDict):
+    question: str
+    context: List[VideoChunk]
+    answer: str
+
+
 class VideoRAGLangGraphAgent:
     def __init__(
         self,
@@ -45,7 +51,7 @@ class VideoRAGLangGraphAgent:
     def _generate_answer(self, state: QAState) -> Dict[str, str]:
         return {"answer": self._answer_generator(state["question"], state["context"])}
 
-    def ask(self, question: str, top_k: int = 3) -> Dict[str, object]:
+    def ask(self, question: str, top_k: int = 3) -> QAResponse:
         initial_state: QAState = {
             "question": question,
             "top_k": top_k,
