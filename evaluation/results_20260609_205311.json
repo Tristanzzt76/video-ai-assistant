@@ -1,0 +1,14 @@
+{
+  "mode": "compare",
+  "timestamp": "2026-06-09T20:36:39.187631",
+  "baseline": {
+    "faithfulness": 0.9848484848484849,
+    "context_precision": 0.9861111110844444,
+    "context_recall": 1.0
+  },
+  "rerank": {
+    "faithfulness": 0.9677083333333334,
+    "context_precision": 0.9861111110701387,
+    "context_recall": 0.9722222222222222
+  }
+}

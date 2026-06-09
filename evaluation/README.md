@@ -27,19 +27,27 @@ python evaluation/evaluate.py
 
 需要 `.env` 中配置 `ZHIPU_API_KEY`，且 ChromaDB 已有数据（先运行文档加载）。
 
-## 预期输出
+## 实际评估结果（2026-06-09）
 
 ```
 === RAGAS 评估结果对比 ===
 
-指标                   基础RAG    加Reranker    提升
-faithfulness           0.61       0.79        +29.5%
-answer_relevancy       0.73       0.81        +11.0%
-context_precision      0.58       0.76        +31.0%
-context_recall         0.69       0.74        +7.2%
-
-结果已保存到: evaluation/results_20240610_143022.json
+指标                   基础RAG    加Reranker    变化
+faithfulness           0.9848     0.9677      -1.7%
+context_precision      0.9861     0.9861       0.0%
+context_recall         1.0000     0.9722      -2.8%
 ```
+
+**分析结论**：
+
+整体分数极高（faithfulness 0.98、context_recall 1.0），说明知识库质量高、RAG 流水线运行正常。
+
+Reranker 在当前场景（33 chunks 小知识库）无明显提升，原因：
+- 向量检索在小知识库中本身精度已很高（precision 0.99）
+- Reranker 将 top-5 压缩到 top-3，反而使 context_recall 从 1.0 降至 0.97
+- Reranker 在**大规模知识库**（1000+ chunks）中才能发挥最大价值：初始检索噪声多，精排能显著提升准确率
+
+**扩展实验方向**：扩充知识库到 200+ 文档后重跑评估，预期 Reranker 效果更显著。
 
 ## 数据集
 
