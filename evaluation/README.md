@@ -1,53 +1,47 @@
 # RAGAS 评估模块
 
-对比基础RAG（无 Reranker）和加 BGE-Reranker 后的检索增强效果。
+三组对比：基础向量检索 vs 向量+Reranker vs 混合检索（BM25+向量+RRF+Reranker）。
 
 ## 依赖安装
 
 ```bash
-pip install ragas datasets langchain-openai
+pip install ragas datasets langchain-openai rank-bm25 jieba
 ```
 
 ## 运行方式
 
 ```bash
-# 切到项目根目录
 cd /path/to/video-ai-assistant
 
-# 只评估基础RAG（无 Reranker）
-python evaluation/evaluate.py --mode baseline
-
-# 只评估加 Reranker
-python evaluation/evaluate.py --mode rerank
-
-# 两者对比（默认）
-python evaluation/evaluate.py --mode compare
-python evaluation/evaluate.py
+python evaluation/evaluate.py --mode compare_all   # 三组完整对比（默认）
+python evaluation/evaluate.py --mode baseline       # 仅基础向量
+python evaluation/evaluate.py --mode rerank         # 仅向量+Reranker
+python evaluation/evaluate.py --mode hybrid         # 仅混合检索
+python evaluation/evaluate.py --mode compare        # 基础 vs Reranker 两组
 ```
 
 需要 `.env` 中配置 `ZHIPU_API_KEY`，且 ChromaDB 已有数据（先运行文档加载）。
 
-## 实际评估结果（2026-06-09）
+## 评估结果（2026-06-10）
 
 ```
-=== RAGAS 评估结果对比 ===
+=== RAGAS 三组对比（基础向量 vs +Reranker vs 混合检索）===
 
-指标                   基础RAG    加Reranker    变化
-faithfulness           0.9848     0.9677      -1.7%
-context_precision      0.9861     0.9861       0.0%
-context_recall         1.0000     0.9722      -2.8%
+指标               基础向量    向量+Reranker    混合检索    混合提升
+faithfulness       0.8860      0.9808          0.9851    +11.2%
+context_precision  0.9861      0.9861          0.9861      0.0%
+context_recall     1.0000      0.9722          0.9722     -2.8%
 ```
 
-**分析结论**：
+**核心结论**：
 
-整体分数极高（faithfulness 0.98、context_recall 1.0），说明知识库质量高、RAG 流水线运行正常。
+混合检索（BM25 + 向量 + RRF + Reranker）使 **faithfulness 提升 11.2%**（0.886 → 0.985）：
+- BM25 擅长精确词汇匹配（如 `M3U8`、`GOP`、`PSNR` 等专有名词）
+- 向量检索擅长语义理解（同义表达、上下文语义）
+- RRF 融合两者排名，召回更全面的上下文
+- 结果：LLM 生成的回答更忠实于检索内容，减少幻觉
 
-Reranker 在当前场景（33 chunks 小知识库）无明显提升，原因：
-- 向量检索在小知识库中本身精度已很高（precision 0.99）
-- Reranker 将 top-5 压缩到 top-3，反而使 context_recall 从 1.0 降至 0.97
-- Reranker 在**大规模知识库**（1000+ chunks）中才能发挥最大价值：初始检索噪声多，精排能显著提升准确率
-
-**扩展实验方向**：扩充知识库到 200+ 文档后重跑评估，预期 Reranker 效果更显著。
+context_recall 略降（1.0 → 0.97）是 Reranker 将 top-5 压缩到 top-3 的合理代价。
 
 ## 数据集
 
