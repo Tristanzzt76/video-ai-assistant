@@ -18,7 +18,7 @@ def rag_search(query: str) -> str:
     if _retriever is None:
         return "知识库未初始化"
     try:
-        chunks = _retriever.search(query, top_k=5, rerank=True, rerank_top_k=3)
+        chunks = _retriever.hybrid_search(query, top_k=5, rerank=True, rerank_top_k=3)
         if not chunks:
             return "知识库中未找到相关内容"
         return "\n\n---\n\n".join(
