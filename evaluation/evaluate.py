@@ -65,14 +65,14 @@ def build_retriever() -> ChromaRetriever:
     return ChromaRetriever(chroma_path=settings.chroma_path)
 
 
-def retrieve_contexts(retriever: ChromaRetriever, question: str, rerank: bool) -> list[str]:
-    """调用 ChromaRetriever.search()，返回检索到的文本列表。"""
-    chunks = retriever.search(
-        query=question,
-        top_k=5,
-        rerank=rerank,
-        rerank_top_k=3,
-    )
+def retrieve_contexts(retriever: ChromaRetriever, question: str, mode: str = "baseline") -> list[str]:
+    """调用检索器，mode: baseline=纯向量, rerank=向量+Reranker, hybrid=混合检索+Reranker。"""
+    if mode == "hybrid":
+        chunks = retriever.hybrid_search(query=question, top_k=5, rerank=True, rerank_top_k=3)
+    elif mode == "rerank":
+        chunks = retriever.search(query=question, top_k=5, rerank=True, rerank_top_k=3)
+    else:  # baseline
+        chunks = retriever.search(query=question, top_k=5, rerank=False)
     return [chunk.text for chunk in chunks] if chunks else [""]
 
 
@@ -108,11 +108,9 @@ def generate_answer(question: str, contexts: list[str]) -> str:
 def build_ragas_dataset(
     samples: list[dict],
     retriever: ChromaRetriever,
-    rerank: bool,
+    mode: str = "baseline",
 ) -> Dataset:
-    """
-    对每个 sample 做检索 + 生成，返回 RAGAS 格式的 Dataset。
-    """
+    """对每个 sample 做检索 + 生成，返回 RAGAS 格式的 Dataset。mode: baseline/rerank/hybrid"""
     questions, answers, contexts_list, ground_truths = [], [], [], []
 
     for i, sample in enumerate(samples):
@@ -120,7 +118,7 @@ def build_ragas_dataset(
         gt = sample["ground_truth"]
         print(f"  [{i+1}/{len(samples)}] {q[:40]}...")
 
-        ctxs = retrieve_contexts(retriever, q, rerank=rerank)
+        ctxs = retrieve_contexts(retriever, q, mode=mode)
         ans = generate_answer(q, ctxs)
 
         questions.append(q)
@@ -198,17 +196,28 @@ def save_results(data: dict) -> Path:
 
 # ── 主入口 ────────────────────────────────────────────────────────────────────
 
+def print_three_way(baseline: dict, rerank: dict, hybrid: dict) -> None:
+    print("\n=== RAGAS 三组对比（基础向量 vs +Reranker vs 混合检索）===\n")
+    header = f"{'指标':<22} {'基础向量':>10} {'向量+Reranker':>14} {'混合检索':>10} {'混合提升':>10}"
+    print(header)
+    print("-" * 72)
+    for name in METRIC_NAMES:
+        b, r, h = baseline[name], rerank[name], hybrid[name]
+        delta = ((h - b) / b * 100) if b > 0 else 0.0
+        sign = "+" if delta >= 0 else ""
+        print(f"{name:<22} {b:>10.4f} {r:>14.4f} {h:>10.4f} {sign}{delta:>8.1f}%")
+
+
 def main():
-    parser = argparse.ArgumentParser(description="RAGAS 评估：基础RAG vs 加Reranker")
+    parser = argparse.ArgumentParser(description="RAGAS 评估：基础向量 vs Reranker vs 混合检索")
     parser.add_argument(
         "--mode",
-        choices=["baseline", "rerank", "compare"],
-        default="compare",
-        help="评估模式（默认: compare）",
+        choices=["baseline", "rerank", "hybrid", "compare", "compare_all"],
+        default="compare_all",
+        help="评估模式（默认: compare_all，三组对比）",
     )
     args = parser.parse_args()
 
-    # 加载数据集
     with open(DATASET_PATH, "r", encoding="utf-8") as f:
         samples = json.load(f)
     print(f"加载数据集: {len(samples)} 条问答对")
@@ -217,31 +226,54 @@ def main():
     results_to_save = {"mode": args.mode, "timestamp": datetime.now().isoformat()}
 
     if args.mode == "baseline":
-        print("\n[基础RAG] 构建检索数据...")
-        ds = build_ragas_dataset(samples, retriever, rerank=False)
-        scores = run_evaluation(ds, "基础RAG")
-        print_single("基础RAG", scores)
+        print("\n[基础向量] 构建检索数据...")
+        ds = build_ragas_dataset(samples, retriever, mode="baseline")
+        scores = run_evaluation(ds, "基础向量")
+        print_single("基础向量", scores)
         results_to_save["baseline"] = scores
 
     elif args.mode == "rerank":
-        print("\n[加Reranker] 构建检索数据...")
-        ds = build_ragas_dataset(samples, retriever, rerank=True)
-        scores = run_evaluation(ds, "加Reranker")
-        print_single("加Reranker", scores)
+        print("\n[向量+Reranker] 构建检索数据...")
+        ds = build_ragas_dataset(samples, retriever, mode="rerank")
+        scores = run_evaluation(ds, "向量+Reranker")
+        print_single("向量+Reranker", scores)
         results_to_save["rerank"] = scores
 
-    else:  # compare
-        print("\n[基础RAG] 构建检索数据...")
-        ds_baseline = build_ragas_dataset(samples, retriever, rerank=False)
-        baseline_scores = run_evaluation(ds_baseline, "基础RAG")
+    elif args.mode == "hybrid":
+        print("\n[混合检索] 构建检索数据...")
+        ds = build_ragas_dataset(samples, retriever, mode="hybrid")
+        scores = run_evaluation(ds, "混合检索")
+        print_single("混合检索", scores)
+        results_to_save["hybrid"] = scores
 
-        print("\n[加Reranker] 构建检索数据...")
-        ds_rerank = build_ragas_dataset(samples, retriever, rerank=True)
-        rerank_scores = run_evaluation(ds_rerank, "加Reranker")
-
+    elif args.mode == "compare":
+        print("\n[基础向量] 构建检索数据...")
+        ds_baseline = build_ragas_dataset(samples, retriever, mode="baseline")
+        baseline_scores = run_evaluation(ds_baseline, "基础向量")
+        print("\n[向量+Reranker] 构建检索数据...")
+        ds_rerank = build_ragas_dataset(samples, retriever, mode="rerank")
+        rerank_scores = run_evaluation(ds_rerank, "向量+Reranker")
         print_comparison(baseline_scores, rerank_scores)
         results_to_save["baseline"] = baseline_scores
         results_to_save["rerank"] = rerank_scores
+
+    else:  # compare_all：三组完整对比
+        print("\n[基础向量] 构建检索数据...")
+        ds_baseline = build_ragas_dataset(samples, retriever, mode="baseline")
+        baseline_scores = run_evaluation(ds_baseline, "基础向量")
+
+        print("\n[向量+Reranker] 构建检索数据...")
+        ds_rerank = build_ragas_dataset(samples, retriever, mode="rerank")
+        rerank_scores = run_evaluation(ds_rerank, "向量+Reranker")
+
+        print("\n[混合检索] 构建检索数据...")
+        ds_hybrid = build_ragas_dataset(samples, retriever, mode="hybrid")
+        hybrid_scores = run_evaluation(ds_hybrid, "混合检索")
+
+        print_three_way(baseline_scores, rerank_scores, hybrid_scores)
+        results_to_save["baseline"] = baseline_scores
+        results_to_save["rerank"] = rerank_scores
+        results_to_save["hybrid"] = hybrid_scores
 
     save_results(results_to_save)
 
