@@ -71,6 +71,9 @@ async def upload_document(file: UploadFile = File(...)):
     try:
         loader = DocumentLoader()
         docs = loader.load_file(str(save_path))
+        # 注入原始文件名到 metadata，用于 docs-list 重建
+        for doc in docs:
+            doc.metadata["original_filename"] = file.filename or save_path.name
         retriever = ChromaRetriever(settings.chroma_path)
         chunk_count = retriever.add_documents(docs, doc_id)
     except Exception as e:
@@ -153,7 +156,7 @@ async def list_docs():
             doc_chunks: dict[str, dict] = {}
             for meta in (all_docs.get("metadatas") or []):
                 doc_id = meta.get("doc_id", "unknown")
-                source = meta.get("source", "unknown")
+                source = meta.get("original_filename") or meta.get("source", "unknown")
                 if doc_id not in doc_chunks:
                     doc_chunks[doc_id] = {"filename": source, "chunk_count": 0}
                 doc_chunks[doc_id]["chunk_count"] += 1
