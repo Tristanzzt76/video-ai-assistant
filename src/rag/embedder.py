@@ -47,6 +47,57 @@ class BGEEmbedder:
         return self.encode(query)[0]
 
 
+class ZhipuAPIEmbedder:
+    """Zhipu embedding-3 API embedder，部署时无需本地模型。"""
+
+    _instance = None
+    _client = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def load(self) -> None:
+        if self._client is not None:
+            return
+        try:
+            from openai import OpenAI
+            import os
+            self._client = OpenAI(
+                api_key=os.getenv("ZHIPU_API_KEY", ""),
+                base_url="https://open.bigmodel.cn/api/paas/v4/",
+            )
+            logger.info("Zhipu Embedding API 初始化完成（部署模式）")
+        except Exception as e:
+            logger.error(f"Zhipu Embedding 初始化失败: {e}")
+            raise
+
+    def encode(self, texts, batch_size: int = 32):
+        import numpy as np
+        if isinstance(texts, str):
+            texts = [texts]
+        if self._client is None:
+            raise RuntimeError("Embedder 未加载，请先调用 load()")
+        # 分批处理，避免超过 API 限制
+        all_embeddings = []
+        for i in range(0, len(texts), batch_size):
+            batch = texts[i:i + batch_size]
+            response = self._client.embeddings.create(
+                model="embedding-3",
+                input=batch,
+                dimensions=1024,  # 与 BGE-M3 相同维度
+            )
+            all_embeddings.extend([d.embedding for d in response.data])
+        return np.array(all_embeddings, dtype=np.float32)
+
+    def encode_query(self, query: str):
+        return self.encode(query)[0]
+
+
 @lru_cache(maxsize=1)
-def get_embedder() -> BGEEmbedder:
+def get_embedder():
+    import os
+    if os.getenv("EMBEDDING_MODEL", "local").lower() == "api":
+        return ZhipuAPIEmbedder()
     return BGEEmbedder()

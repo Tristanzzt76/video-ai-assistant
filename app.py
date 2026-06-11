@@ -42,6 +42,24 @@ async def lifespan(app: FastAPI):
     retriever = ChromaRetriever(settings.chroma_path)
     set_retriever(retriever)
 
+    # 如果 ChromaDB 为空，自动加载内置文档（适用于首次部署）
+    if retriever.get_doc_count() == 0:
+        logger.info("知识库为空，自动加载内置文档...")
+        from src.rag.loader import DocumentLoader
+        loader = DocumentLoader()
+        docs_loaded = 0
+        for doc_file in Path(settings.docs_path).glob("*.md"):
+            try:
+                docs = loader.load_file(str(doc_file))
+                for doc in docs:
+                    doc.metadata["original_filename"] = doc_file.name
+                retriever.add_documents(docs, doc_file.stem[:8])
+                docs_loaded += len(docs)
+            except Exception as e:
+                logger.warning(f"自动加载 {doc_file.name} 失败: {e}")
+        if docs_loaded > 0:
+            logger.info(f"自动加载完成，共 {retriever.get_doc_count()} 个 chunk")
+
     logger.info("服务启动完成，访问 http://localhost:8000/docs 查看 API 文档")
     yield
     logger.info("服务关闭")

@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: video-ai-assistant-api
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: EMBEDDING_MODEL
+        value: api
+      - key: ZHIPU_API_KEY
+        sync: false
+      - key: HF_HUB_DISABLE_XET
+        value: "1"
+      - key: CHROMA_PATH
+        value: /data/chroma
+      - key: DOCS_PATH
+        value: data/docs
+      - key: CORS_ORIGINS
+        value: https://video-ai-assistant.vercel.app,http://localhost:3000
+    disk:
+      name: chroma-data
+      mountPath: /data
+      sizeGB: 1
