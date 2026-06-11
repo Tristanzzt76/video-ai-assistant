@@ -139,7 +139,29 @@ async def chat(request: ChatRequest):
 
 @router.get("/docs-list", response_model=DocsListResponse)
 async def list_docs():
-    """返回已上传的文档列表。"""
+    """返回已上传的文档列表（从内存 registry 或 ChromaDB 重建）。"""
+    from src.config import get_settings
+    from src.rag.retriever import ChromaRetriever
+
+    # 如果内存 registry 为空，从 ChromaDB 重建
+    if not _docs_registry:
+        try:
+            settings = get_settings()
+            retriever = ChromaRetriever(settings.chroma_path)
+            all_docs = retriever.collection.get(include=["metadatas"])
+            # 按 doc_id 聚合
+            doc_chunks: dict[str, dict] = {}
+            for meta in (all_docs.get("metadatas") or []):
+                doc_id = meta.get("doc_id", "unknown")
+                source = meta.get("source", "unknown")
+                if doc_id not in doc_chunks:
+                    doc_chunks[doc_id] = {"filename": source, "chunk_count": 0}
+                doc_chunks[doc_id]["chunk_count"] += 1
+            for doc_id, info in doc_chunks.items():
+                _docs_registry[doc_id] = info
+        except Exception as e:
+            logger.warning(f"从 ChromaDB 重建文档列表失败: {e}")
+
     docs = [
         DocInfo(doc_id=doc_id, filename=info["filename"], chunk_count=info["chunk_count"])
         for doc_id, info in _docs_registry.items()

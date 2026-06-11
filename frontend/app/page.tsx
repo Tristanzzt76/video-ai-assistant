@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import MessageBubble from '@/components/MessageBubble'
+import DocsList from '@/components/DocsList'
 import { sendChatStream } from '@/lib/api'
 
 interface Message {
@@ -63,9 +64,10 @@ export default function ChatPage() {
     <div className="flex flex-col h-[calc(100vh-120px)]">
       <div className="flex-1 overflow-y-auto space-y-4 pb-4">
         {messages.length === 0 && !streamingContent && (
-          <div className="text-center text-gray-500 mt-20">
-            <p className="text-lg">视频技术 AI 助手</p>
-            <p className="text-sm mt-2">问我关于 HLS/DASH/H.264/CDN 等视频技术问题</p>
+          <div className="text-center mt-20">
+            <p className="text-lg text-gray-300">视频技术 AI 助手</p>
+            <p className="text-sm mt-2 text-gray-500">问我关于 HLS/DASH/H.264/CDN 等视频技术问题</p>
+            <DocsList />
           </div>
         )}
         {messages.map((msg, i) => (
